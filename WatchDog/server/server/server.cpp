@@ -13,13 +13,24 @@ using namespace std;
 #define MY_PORT 666 //порт, который слушает сервер, № 666
 
 //макрос для печати количества активных пользователей
-#define PRINTNEWUSERS if (nclients == 1) printf("%d client on-line.\n", nclients); else if(nclients > 1) printf("%d clients on-line.\n", nclients); else printf("No clients on-line.\n");
+//#define PRINTNEWUSERS if (nclients == 1) printf("%d client on-line.\n", nclients); else if(nclients > 1) printf("%d clients on-line.\n", nclients); else printf("No clients on-line.\n");
 
 //макрос для печати сообщения о подключении сокета к клиенту
 #define sHELLO "Socket connected.\r\n"
 
 //количество активных пользователей
 int nclients = 0;
+
+//функция для печати количества активных пользователей
+void PRINTNEWUSERS()
+{
+	if (nclients == 1)
+		printf("%d client on-line.\n", nclients);
+	else if (nclients > 1)
+		printf("%d clients on-line.\n", nclients);
+	else
+		printf("No clients on-line.\n");
+}
 
 //функция, создающаяся в отдельном потоке 
 //и обсуживающая очередного подключившегося клиента независимо от остальных
@@ -35,18 +46,20 @@ DWORD WINAPI SetToClient(LPVOID client_socket)
 	//цикл проверки клиента "на жизнь"
 	//если можем писать ему, значит он живой
 	while (true)
+	{
 		if (send(my_sock, &buff[0], 0, 0) == SOCKET_ERROR)
 		{
 			//если мы здесь, то соединение с клиентом разорвано
 			nclients--; //уменьшаем счетчик активных клиентов
 			printf("-- One client disconnected.\n");
-			PRINTNEWUSERS
+			PRINTNEWUSERS();
 
 			//закрываем сокет
 			closesocket(my_sock);
 			return 0;
 		}
-
+		Sleep(2000);
+	}
 }
 
 int _tmain(int argc, _TCHAR* argv[])
@@ -56,10 +69,10 @@ int _tmain(int argc, _TCHAR* argv[])
 	printf("WatchDog server.\n");
 
 	// Шаг 1 - Инициализация Библиотеки Сокетов
-	//т.к. возвращенная функцией информация не используется,
-	//ей передается указатель на рабочий буфер, преобразуемый к указателю на структуру WSADATA.
-	//Такой прием позволяет сэкономить одну переменную, однако, буфер должен быть не менее полкилобайта размером
-	//(структура WSADATA занимает 400 байт)
+	//первым параметром задается версия библиотеки,
+	//для старых версий задавалось $101, для новой версии (Winsock2) используется число $202, 
+	//вторым параметром передается структура TWSAData(WSAData), в которую будет записана некоторая информация о библиотеке
+	//таков прототип функции - int WSAStartup (  WORD wVersionRequested, LPWSADATA lpWSAData  )
 	if (WSAStartup(0x0202, (WSADATA *)&buff[0]))
 	{
 		//Ошибка!
@@ -73,7 +86,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	//AF_INET - сокет Интернета
 	//SOCK_STREAM - потоковый сокет (с установкой соединения)
 	//0 - по умолчанию выбирается TCP протокол
-	if ((mysocket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+	if ((mysocket = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
 	{
 		//Ошибка!
 		printf("Error socket %d\n", WSAGetLastError());
@@ -130,14 +143,14 @@ int _tmain(int argc, _TCHAR* argv[])
 		//вывод сведений о клиенте
 		printf("-- %s [%s] now connected.\n",
 			(hst) ? hst->h_name : "", inet_ntoa(client_addr.sin_addr));
-		PRINTNEWUSERS
+		PRINTNEWUSERS();
 
-			//Вызов нового потока для обслужвания клиента:
-			//для этого рекомендуется использовать _beginthreadex но, 
-			//поскольку никаких вызовов функций стандартной Си библиотеки поток не делает, 
-			//можно обойтись и CreateThread
-			DWORD thID;
-		CreateThread(NULL, NULL, SetToClient, &client_socket, NULL, &thID);
+		//Вызов нового потока для обслужвания клиента:
+		//для этого рекомендуется использовать _beginthreadex но, 
+		//поскольку никаких вызовов функций стандартной Си библиотеки поток не делает, 
+		//можно обойтись и CreateThread
+		DWORD thID;
+		CreateThread(NULL, 0, SetToClient, &client_socket, 0, &thID);
 	}
 
 	return 0;

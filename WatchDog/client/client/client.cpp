@@ -27,9 +27,10 @@ int _tmain(int argc, _TCHAR* argv[])
 	// Шаг 2 - создание сокета
 	SOCKET my_sock;
 	my_sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (my_sock < 0)
+	if (my_sock == INVALID_SOCKET)
 	{
 		printf("Socket() error %d.\n", WSAGetLastError());
+		WSACleanup();
 		return -1;
 	}
 
@@ -64,6 +65,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (connect(my_sock, (sockaddr *)&dest_addr, sizeof(dest_addr)))
 	{
 		printf("Connect error %d.\n", WSAGetLastError());
+		closesocket(my_sock);
+		WSACleanup();
 		return -1;
 	}
 
